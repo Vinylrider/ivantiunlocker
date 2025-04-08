@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-# Example
+# Example (these rules are set by the python web server below)
 #iptables -t nat -A PREROUTING -s allowed.visitor.ip -d your.outside.ip -p tcp --dport 443 -j DNAT --to-destination ssl-vpn-device-ip:443
 #iptables -A FORWARD -s allowed.visitor.ip/32 -d ssl-vpn-device-ip/32 -o eth0 -p tcp -m tcp --dport 443 -j ACCEPT
+
+# You might also need to set this additional route :
+# (Example) iptables -t nat -A POSTROUTING -s 192.168.1.0/24 -d 192.168.1.2/32 -p tcp -m tcp --dport 443 -j SNAT --to-source 192.168.1.1
+# Where 192.168.1.0 is your internal network, 192.168.1.2 is your SSL-VPN device (external port) and 192.168.1.1 is your firewall/router
 
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse, parse_qs
