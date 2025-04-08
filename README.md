@@ -18,6 +18,8 @@ appliance.
 The gateway is a simple python written webserver (listens on HTTPS port 443 instead of SSL VPN) which presents the visitor a password entry box. When correct passwort
 is entered then the visitor's IP gets FORWARD/PREROUTING firewall entries and he then can immediately access the SSL VPN device with same URL/port.
 
+<img src="./Example-Password-entry.png">
+
 This is just one possible approach. You also could have user/password combinations, a pin pad, user certificates, use 2FA Authelia, etc...
 But in the end you need to handle it by firewall rules because SSL VPN devices don't like it if you terminate SSL/TLS elsewhere.
 Also only this way you can hide from attackers completely which prevents any future CVE security breach problem.
