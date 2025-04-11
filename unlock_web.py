@@ -9,9 +9,10 @@
 # (Example) iptables -t nat -A POSTROUTING -s 192.168.1.0/24 -d 192.168.1.2/32 -p tcp -m tcp --dport 443 -j SNAT --to-source 192.168.1.1
 # Where 192.168.1.0 is your internal network, 192.168.1.2 is your SSL-VPN device (external port) and 192.168.1.1 is your firewall/router
 
-from http.server import BaseHTTPRequestHandler, HTTPServer
+import http.server
 from urllib.parse import urlparse, parse_qs
 import logging
+import socketserver
 import ssl
 import subprocess
 import html
@@ -38,13 +39,34 @@ class MyLogger:
 sys.stdout = MyLogger()
 sys.stderr = MyLogger()
 
-class Handler(BaseHTTPRequestHandler):
+class ThreadedHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
+    daemon_threads = True  # End threads after server closed
+    allow_reuse_address = True
+
+    def serve_forever(self, poll_interval=0.5):
+        self.socket.settimeout(1)
+        while True:
+            try:
+                self.handle_request()
+            except socket.timeout:
+                pass  # Currently no connection
+            except Exception as e:
+                logging.error("Error in server loop: %s", str(e))
+
+class Handler(http.server.BaseHTTPRequestHandler):
     def version_string(self):
         return "IvantiUnlocker/1.0" # Enter own name so no one finds you !
 
     def do_GET(self):
         logging.info("%s %s", self.command, self.path)
-        
+
+        # Protection against long headers (eg. X-Forwarded-For)
+        for header, value in self.headers.items():
+            if len(value) > 1024:  # Can be adjusted
+                self.send_error(400, "Header too long")
+                logging.warning("Too long HTTP-header from %s: %s=%d characters", self.client_address[0], header, len(value))
+                return
+                
         if not self.path.startswith("/") or ".." in self.path:
             self.send_error(400, "Invalid path")
             return
@@ -194,16 +216,17 @@ def append_rule_to_file(rule, filename='/afiletostorerulesinaddition'):
         logging.error("Error while writing the rule to file: {}".format(e))
 
 def run():
-    httpd = HTTPServer(('Listening-IP.here', 443), Handler)
-
-    ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
-    ssl_context.load_cert_chain(certfile="/yourcertfile.crt", keyfile="/yourkeyfile.key")
-    ssl_context.set_ciphers("ECDHE+AESGCM:!ECDSA")
-
-    httpd.socket = ssl_context.wrap_socket(httpd.socket, server_side=True)
-
-    logging.info("Unlock-Webserver running on port 443 (HTTPS)...")
-    httpd.serve_forever()
-
+    try:
+        httpd = HTTPServer(('Listening-IP.here', 443), Handler)
+        ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
+        ssl_context.load_cert_chain(certfile="/yourcertfile.crt", keyfile="/yourkeyfile.key")
+        ssl_context.set_ciphers("ECDHE+AESGCM:!ECDSA")
+        httpd.socket = ssl_context.wrap_socket(httpd.socket, server_side=True)
+        logging.info("Unlock-Webserver running on port 443 (HTTPS)...")
+        httpd.serve_forever()
+    except Exception as e:
+        logging.error("Server crashed: {}. Restart in 3 seconds.".format(e))
+        time.sleep(3)
+        
 if __name__ == '__main__':
     run()
