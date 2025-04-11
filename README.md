@@ -7,6 +7,8 @@ POST / HTTP/1.1
 X-Forwarded-For: 1111111111111111111111111111111...
 will open the door to your appliance !
 
+See working exploit : https://github.com/sfewer-r7/CVE-2025-22457
+
 As we have PSA3000 and there is no firmware update available for fixing this problem it is obvious that Ivanti wants to push you to buy
 new devices like ISA6000 for 10.000 USD+. I guess you buy that and then the next security issues will happen anyway.
 
