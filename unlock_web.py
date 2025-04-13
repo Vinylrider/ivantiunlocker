@@ -216,16 +216,24 @@ def append_rule_to_file(rule, filename='/afiletostorerulesinaddition'):
         logging.error("Error while writing the rule to file: {}".format(e))
 
 def run():
-    try:
-        httpd = HTTPServer(('Listening-IP.here', 443), Handler)
-        ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
-        ssl_context.load_cert_chain(certfile="/yourcertfile.crt", keyfile="/yourkeyfile.key")
-        ssl_context.set_ciphers("ECDHE+AESGCM:!ECDSA")
-        httpd.socket = ssl_context.wrap_socket(httpd.socket, server_side=True)
-        logging.info("Unlock-Webserver running on port 443 (HTTPS)...")
-        httpd.serve_forever()
-    except Exception as e:
-        logging.error("Server crashed: {}. Restart in 3 seconds.".format(e))
+    while True:
+        try:
+            httpd = ThreadedHTTPServer(('my.listening.ip.here', 443), Handler)
+            httpd.timeout = 15
+            ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
+            ssl_context.load_cert_chain(certfile="/server.crt", keyfile="/server.key")
+            ssl_context.set_ciphers("ECDHE+AESGCM:!ECDSA")
+            httpd.socket = ssl_context.wrap_socket(httpd.socket, server_side=True)
+            httpd.socket.settimeout(15)
+            logging.info("Unlock-Webserver running on port 443 (HTTPS)...")
+            httpd.serve_forever()
+        except ssl.SSLError as e:
+            logging.error("SSL-error: %s", str(e))
+        except OSError as e:
+            logging.error("Socket-error: %s", str(e))
+        except Exception as e:
+            logging.error("Unexpected error: %s\n%s", str(e), traceback.format_exc())
+        logging.info("Neustart in 5 seconds...")
         time.sleep(3)
         
 if __name__ == '__main__':
